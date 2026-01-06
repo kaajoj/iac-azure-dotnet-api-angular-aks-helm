@@ -1,0 +1,25 @@
+# Terraform state files
+*.tfstate
+*.tfstate.backup
+
+# Crash logs
+crash.log
+
+# Ignore the .terraform directory
+.terraform/
+
+# Terraform lock file
+.terraform.lock.hcl
+
+# Plan files
+*.tfplan
+ 
+# Sensitive variable files (do not commit)
+terraform.tfvars
+
+# Angular client build and dependencies
+src/MyWebApp.Client/node_modules/
+src/MyWebApp.Client/dist/
+src/MyWebApp.Client/.angular/
+src/MyWebApp.Client/package-lock.json
+src/MyWebApp.Client/.angular-cache/

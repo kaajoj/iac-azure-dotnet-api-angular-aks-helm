@@ -1,0 +1,38 @@
+replicaCount: 1
+
+image:
+  repository: dotnetappazuredeployacr.azurecr.io/dotnetappazuredeploy
+  tag: latest
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  # Optional: if empty, Ingress will be host-agnostic and accept requests by IP
+  # e.g. set to "<LB_IP>.nip.io" to use LetsEncrypt with a dynamic DNS mapping
+  host: ""
+  tls:
+    enabled: true
+    secretName: myapp-tls
+
+resources:
+  requests:
+    cpu: "125m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+livenessProbe:
+  enabled: true
+  path: /hello
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  path: /hello
+  initialDelaySeconds: 5
+  periodSeconds: 10

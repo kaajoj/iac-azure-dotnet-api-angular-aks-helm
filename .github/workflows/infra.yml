@@ -1,0 +1,84 @@
+name: Provision Azure Infrastructure
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    env:
+      TF_VAR_subscription_id: ${{ secrets.TF_VAR_subscription_id }}
+      TF_VAR_sql_admin_login: ${{ secrets.TF_VAR_sql_admin_login }}
+      TF_VAR_sql_admin_password: ${{ secrets.TF_VAR_sql_admin_password }}
+      TF_VAR_connection_string: ${{ secrets.TF_VAR_connection_string }}
+      RG_NAME: dotnetappazuredeploy-rg
+      AKS_NAME: dotnetappazuredeploy-aks
+
+    steps:
+      - name: Checkout code/repository
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install/Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Format Check
+        working-directory: infra
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: infra
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: infra
+        run: terraform plan
+
+      - name: Terraform Apply
+        working-directory: infra
+        run: terraform apply -auto-approve
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Verify kubectl
+        run: |
+          uname -m || true
+          kubectl version --client || true
+          kubectl version --client -o json || true
+
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: "3.12.0"
+
+      - name: Verify Helm
+        run: |
+          helm version || true
+          helm version --short || true
+
+      - name: Install Cluster Services (Ingress, Cert-Manager, Monitoring)
+        run: |
+          # Remove old Helm v2 config if present to avoid helm init errors
+          rm -rf ~/.helm || true
+          az aks get-credentials --resource-group ${{ env.RG_NAME }} --name ${{ env.AKS_NAME }} --overwrite-existing
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace --set controller.service.type=LoadBalancer
+          helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --set installCRDs=true
+          helm upgrade --install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace --wait --timeout 15m --set prometheus.prometheusSpec.serviceMonitorNamespaceSelector.matchNames[0]=default
