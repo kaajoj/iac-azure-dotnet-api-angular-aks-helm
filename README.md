@@ -2,7 +2,7 @@
 
 This project demonstrates how to deploy a .NET Web API application (backend) and an Angular client (frontend) to Azure Kubernetes Service (AKS) using **Terraform** for infrastructure provisioning, **Helm** for packaging the application, **Prometheus and Grafana** for monitoring, and **GitHub Actions** for CI/CD, providing an end-to-end example setup.
 
-**Note on Kubernetes Deployment:** This project uses Helm charts for deployment. For a simpler approach using **raw Kubernetes YAML manifests**, please refer to the following repository
+**Note on Kubernetes Deployment:** This project uses Helm charts for deployment. For a simpler approach using **raw Kubernetes YAML manifests**, please refer to the following repository https://github.com/kaajoj/iac-azure-dotnet-api-angular-aks
 
 ## Project Structure
 
