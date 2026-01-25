@@ -1,0 +1,4 @@
+client:
+  image:
+    repository: dotnetappazuredeployacr.azurecr.io/dotnetappazuredeploy-client
+    tag: latest

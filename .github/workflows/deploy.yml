@@ -1,0 +1,89 @@
+name: Build and Deploy (.NET Web API) to AKS using Helm
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+env:
+  ACR_NAME: dotnetappazuredeployacr
+  ACR_LOGIN_SERVER: dotnetappazuredeployacr.azurecr.io
+  IMAGE_NAME: dotnetappazuredeploy
+  AKS_NAME: dotnetappazuredeploy-aks
+  RG_NAME: dotnetappazuredeploy-rg
+  VAULT_NAME: dotnetappazuredeploykv
+  SECRET_NAME: ConnectionStrings--DefaultConnection
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code/repository
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest .
+          docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
+          # Build and push Angular client image
+          cd src/MyWebApp.Client
+          docker build -t $ACR_LOGIN_SERVER/${IMAGE_NAME}-client:latest .
+          docker push $ACR_LOGIN_SERVER/${IMAGE_NAME}-client:latest
+          cd ../../..
+
+      - name: Set AKS credentials
+        uses: azure/aks-set-context@v2
+        with:
+          resource-group: ${{ env.RG_NAME }}
+          cluster-name: ${{ env.AKS_NAME }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v1
+        with:
+          version: "3.12.0"
+
+      - name: Verify Helm
+        run: |
+          helm version || true
+          helm version --short || true
+
+      - name: Get DB connection string from Key Vault
+        id: get-secret
+        run: |
+          az --version
+          CONN=$(az keyvault secret show --vault-name "${{ env.VAULT_NAME }}" --name "${{ env.SECRET_NAME }}" --query value -o tsv)
+          echo "::set-output name=conn::$CONN"
+
+      - name: Create/Update Kubernetes secret
+        run: |
+          kubectl create namespace default --dry-run=client -o yaml | kubectl apply -f - || true
+          kubectl create secret generic db-secret --from-literal=DefaultConnection="${{ steps.get-secret.outputs.conn }}" --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Lint Helm chart
+        run: |
+          helm lint infra/charts/mywebapp -f infra/charts/mywebapp/values.yaml -f infra/charts/mywebapp/values-client.yaml
+
+      - name: Render Helm chart (preview)
+        run: |
+          helm template mywebapp infra/charts/mywebapp --set image.repository=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }} --set image.tag=latest -f infra/charts/mywebapp/values-client.yaml --set client.image.repository=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}-client --set client.image.tag=latest
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install mywebapp infra/charts/mywebapp \
+            --namespace default --create-namespace \
+            --set image.repository=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=latest \
+            -f infra/charts/mywebapp/values-client.yaml \
+            --set client.image.repository=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}-client \
+            --set client.image.tag=latest \
+            --wait --timeout 10m

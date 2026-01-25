@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "mywebapp.fullname" . }}
+  labels:
+    # This label is important, it's what the Prometheus instance in the
+    # kube-prometheus-stack chart uses to discover ServiceMonitors.
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "mywebapp.fullname" . }}
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:
+  - port: http-metrics
+    path: /metrics
+    interval: 15s

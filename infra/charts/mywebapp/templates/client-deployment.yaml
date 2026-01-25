@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mywebapp.client.fullname" . }}
+  labels:
+    app: {{ include "mywebapp.client.fullname" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "mywebapp.client.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "mywebapp.client.fullname" . }}
+    spec:
+      containers:
+        - name: mywebapp-client
+          image: {{ .Values.client.image.repository }}:{{ .Values.client.image.tag }}
+          ports:
+            - containerPort: 80

@@ -1,0 +1,15 @@
+1. The chart has been installed with these commands:
+   helm upgrade --install mywebapp ./infra/charts/mywebapp --namespace default --create-namespace \
+     --set image.repository=<ACR_LOGIN_SERVER>/<IMAGE_NAME> --set image.tag=<TAG> --wait
+
+2. After deployment, check the status:
+   kubectl get all -n default -l app={{ include "mywebapp.fullname" . }}
+
+3. Secrets: This chart consumes `db-secret` (key: DefaultConnection). In your CI we create this Kubernetes secret from Key Vault; ensure that `db-secret` exists (or update the chart to create it).
+
+4. Ingress host behavior (defaults to dev-friendly settings):
+   - By default `ingress.host` is empty, so the Ingress will be host-agnostic and match requests by IP (useful for dev/test without a domain).
+   - If `ingress.host` is set (e.g. `myapp.example.com`) the Ingress will configure host-based routing and TLS for that host.
+   - If you want Let's Encrypt TLS and don't have a domain, you can set the host to `<LB_IP>.nip.io` (or similar) to use ACME.
+
+3. If ingress is enabled, point your DNS to the external IP of the nginx ingress controller.
